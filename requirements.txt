@@ -1,1 +1,4 @@
+# Packet crafting / packet analysis
 scapy
+scapy-cdp
+dpkt

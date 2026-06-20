@@ -1,5 +1,7 @@
-#!/usr/bin/env python3
-
+#####################################################################################################
+#                             Network Steganography Messenger                                       #
+#####################################################################################################
+ 
 import os
 import time
 import struct
@@ -7,25 +9,19 @@ import hashlib
 import threading
 from dataclasses import dataclass, field
 from typing import Dict, Optional, Set
-
 from scapy.all import IP, ICMP, Raw, send, sniff, sr1
 from cryptography.hazmat.primitives.ciphers.aead import ChaCha20Poly1305
-
 
 MAGIC = b"NS"
 VERSION = 1
 MSG_TYPE_CHAT = 1
-
 CHUNK_SIZE = 2
-
 ICMP_START_SEQ = 0
 ICMP_NACK_SEQ = 65532
 ICMP_ACK_SEQ = 65533
 ICMP_END_SEQ = 65534
-
 COVER_PAYLOAD = b"NETWORK-STEG-LAB"
 ASSOCIATED_DATA = b"network-stego-v2"
-
 
 @dataclass
 class MessageBuffer:
@@ -33,7 +29,6 @@ class MessageBuffer:
     chunks: Dict[int, int] = field(default_factory=dict)
     total_chunks: Optional[int] = None
     created_at: float = field(default_factory=time.time)
-
 
 @dataclass
 class ChatSession:
@@ -51,7 +46,6 @@ class ChatSession:
     acked_messages: Set[int] = field(default_factory=set)
     sent_messages: Dict[int, str] = field(default_factory=dict)
 
-
 def derive_key(password: str, local_ip: str, peer_ip: str) -> bytes:
     ip_pair = "|".join(sorted([local_ip, peer_ip]))
     salt = hashlib.sha256(ip_pair.encode()).digest()
@@ -63,7 +57,6 @@ def derive_key(password: str, local_ip: str, peer_ip: str) -> bytes:
         200_000,
         dklen=32,
     )
-
 
 def build_plaintext(message_id: int, text: str) -> bytes:
     text_bytes = text.encode("utf-8")
@@ -80,7 +73,6 @@ def build_plaintext(message_id: int, text: str) -> bytes:
     )
 
     return header + text_bytes
-
 
 def parse_plaintext(data: bytes) -> Dict:
     header_size = struct.calcsize("!2sBBIIH")
@@ -112,7 +104,6 @@ def parse_plaintext(data: bytes) -> Dict:
         "text": text_bytes.decode("utf-8"),
     }
 
-
 def encrypt_message(key: bytes, message_id: int, text: str) -> bytes:
     plaintext = build_plaintext(message_id, text)
 
@@ -126,7 +117,6 @@ def encrypt_message(key: bytes, message_id: int, text: str) -> bytes:
     )
 
     return nonce + encrypted
-
 
 def decrypt_message(key: bytes, encrypted_blob: bytes) -> Dict:
     if len(encrypted_blob) < 12 + 16:
@@ -145,7 +135,6 @@ def decrypt_message(key: bytes, encrypted_blob: bytes) -> Dict:
 
     return parse_plaintext(plaintext)
 
-
 def split_into_chunks(data: bytes) -> Dict[int, int]:
     chunks = {}
 
@@ -160,7 +149,6 @@ def split_into_chunks(data: bytes) -> Dict[int, int]:
 
     return chunks
 
-
 def reassemble_chunks(chunks: Dict[int, int], total_chunks: int) -> bytes:
     result = bytearray()
 
@@ -172,7 +160,6 @@ def reassemble_chunks(chunks: Dict[int, int], total_chunks: int) -> bytes:
 
     return bytes(result)
 
-
 def send_icmp_packet(dst_ip: str, session_id: int, seq: int, ip_id: int) -> None:
     pkt = (
         IP(dst=dst_ip, id=ip_id & 0xFFFF)
@@ -181,7 +168,6 @@ def send_icmp_packet(dst_ip: str, session_id: int, seq: int, ip_id: int) -> None
     )
 
     send(pkt, verbose=False)
-
 
 def check_connectivity(peer_ip: str, timeout: int = 2) -> bool:
     print("[check] Sending normal ICMP Echo Request...")
@@ -201,7 +187,6 @@ def check_connectivity(peer_ip: str, timeout: int = 2) -> bool:
     print("[check] No ICMP reply received.\n")
     return False
 
-
 def send_ack(session: ChatSession, message_id: int) -> None:
     send_icmp_packet(
         dst_ip=session.peer_ip,
@@ -213,7 +198,6 @@ def send_ack(session: ChatSession, message_id: int) -> None:
     if session.debug:
         print(f"[TX] ACK sent for message_id={message_id}")
 
-
 def send_nack(session: ChatSession, message_id: int) -> None:
     send_icmp_packet(
         dst_ip=session.peer_ip,
@@ -224,7 +208,6 @@ def send_nack(session: ChatSession, message_id: int) -> None:
 
     if session.debug:
         print(f"[TX] NACK sent for message_id={message_id}")
-
 
 def transmit_message_by_id(
     session: ChatSession,
@@ -275,7 +258,6 @@ def transmit_message_by_id(
     else:
         print("[sent, waiting for ACK]")
 
-
 def send_stego_message(session: ChatSession, text: str) -> None:
     message_id = session.next_message_id
     session.next_message_id += 1
@@ -300,7 +282,6 @@ def send_stego_message(session: ChatSession, text: str) -> None:
 
     print("[warning] No ACK received\n")
 
-
 def retransmit_message(session: ChatSession, message_id: int) -> None:
     if message_id not in session.sent_messages:
         print(f"[warning] Cannot retransmit message_id={message_id}; original text not found")
@@ -312,7 +293,6 @@ def retransmit_message(session: ChatSession, message_id: int) -> None:
         text=session.sent_messages[message_id],
         retransmit=True,
     )
-
 
 def process_received_packet(session: ChatSession, pkt) -> None:
     if IP not in pkt or ICMP not in pkt:
@@ -427,14 +407,12 @@ def process_received_packet(session: ChatSession, pkt) -> None:
 
         return
 
-
 def receiver_thread(session: ChatSession) -> None:
     sniff(
         filter="icmp",
         prn=lambda pkt: process_received_packet(session, pkt),
         store=False,
     )
-
 
 def change_destination_ip(session: ChatSession) -> None:
     new_ip = input("Enter new peer IP: ").strip()
@@ -459,7 +437,6 @@ def change_destination_ip(session: ChatSession) -> None:
     print(f"Peer IP changed: {old_ip} -> {session.peer_ip}")
     print("Encryption key regenerated because peer IP changed.")
 
-
 def change_password(session: ChatSession) -> None:
     new_password = input("Enter new shared password: ").strip()
 
@@ -483,7 +460,6 @@ def change_password(session: ChatSession) -> None:
     print("Encryption key regenerated.")
     print("Important: peer must use the same password.")
 
-
 def show_help() -> None:
     print("""
 Commands:
@@ -498,7 +474,6 @@ Commands:
 @debug off     Disable technical logs
 """)
 
-
 def show_status(session: ChatSession) -> None:
     print("\nSession status")
     print("-" * 45)
@@ -511,7 +486,6 @@ def show_status(session: ChatSession) -> None:
     print(f"ACKed Messages:    {sorted(session.acked_messages)}")
     print(f"Stored TX Msgs:    {list(session.sent_messages.keys())}")
     print("-" * 45 + "\n")
-
 
 def handle_command(session: ChatSession, command: str) -> None:
     if command == "@help":
@@ -542,7 +516,6 @@ def handle_command(session: ChatSession, command: str) -> None:
 
     else:
         print("Unknown command. Type @help.")
-
 
 def main() -> None:
     print("=" * 70)
@@ -616,6 +589,9 @@ def main() -> None:
 
     print("\nClosing messenger.")
 
+# Main ##############################################################################################
 
 if __name__ == "__main__":
     main()
+
+# End ###############################################################################################

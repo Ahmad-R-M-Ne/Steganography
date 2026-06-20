@@ -1,20 +1,19 @@
-#!/usr/bin/env python3
-
+#####################################################################################################
+#                             Network Steganography Messenger                                       #
+#####################################################################################################
+ 
 import os
 import time
 import struct
 import hashlib
 from dataclasses import dataclass
 from typing import Dict
-
 from cryptography.hazmat.primitives.ciphers.aead import ChaCha20Poly1305
-
 
 MAGIC = b"NS"
 VERSION = 1
 MSG_TYPE_CHAT = 1
 CHUNK_SIZE = 2
-
 
 @dataclass
 class Session:
@@ -23,7 +22,6 @@ class Session:
     peer_ip: str
     session_id: int
     key: bytes
-
 
 def derive_key(password: str, local_ip: str, peer_ip: str) -> bytes:
     """
@@ -40,7 +38,6 @@ def derive_key(password: str, local_ip: str, peer_ip: str) -> bytes:
         200_000,
         dklen=32
     )
-
 
 def build_plaintext(message_id: int, text: str) -> bytes:
     """
@@ -68,7 +65,6 @@ def build_plaintext(message_id: int, text: str) -> bytes:
     )
 
     return header + text_bytes
-
 
 def parse_plaintext(data: bytes) -> Dict:
     """
@@ -103,7 +99,6 @@ def parse_plaintext(data: bytes) -> Dict:
         "text": text_bytes.decode("utf-8")
     }
 
-
 def encrypt_message(key: bytes, message_id: int, text: str) -> bytes:
     """
     Encrypt the full message once.
@@ -126,7 +121,6 @@ def encrypt_message(key: bytes, message_id: int, text: str) -> bytes:
 
     return nonce + encrypted
 
-
 def decrypt_message(key: bytes, encrypted_blob: bytes) -> Dict:
     """
     Decrypt nonce + ciphertext/tag and parse plaintext.
@@ -148,7 +142,6 @@ def decrypt_message(key: bytes, encrypted_blob: bytes) -> Dict:
     )
 
     return parse_plaintext(plaintext)
-
 
 def split_into_chunks(data: bytes) -> Dict[int, int]:
     """
@@ -175,7 +168,6 @@ def split_into_chunks(data: bytes) -> Dict[int, int]:
 
     return chunks
 
-
 def reassemble_chunks(chunks: Dict[int, int], total_chunks: int, original_length: int) -> bytes:
     """
     Reassemble 2-byte IPv4-ID values back into encrypted bytes.
@@ -189,7 +181,6 @@ def reassemble_chunks(chunks: Dict[int, int], total_chunks: int, original_length
         result.extend(chunks[chunk_number].to_bytes(2, "big"))
 
     return bytes(result[:original_length])
-
 
 def demo_local_protocol_test() -> None:
     """
@@ -271,6 +262,9 @@ def demo_local_protocol_test() -> None:
 
         message_id += 1
 
+# Main ##############################################################################################
 
 if __name__ == "__main__":
     demo_local_protocol_test()
+    
+# End ###############################################################################################

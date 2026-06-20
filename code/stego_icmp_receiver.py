@@ -1,21 +1,19 @@
-#!/usr/bin/env python3
-
+#####################################################################################################
+#                             Network Steganography Messenger                                       #
+#####################################################################################################
+ 
 import time
 import struct
 import hashlib
 from typing import Dict
-
 from scapy.all import sniff, IP, ICMP
 from cryptography.hazmat.primitives.ciphers.aead import ChaCha20Poly1305
-
 
 MAGIC = b"NS"
 VERSION = 1
 MSG_TYPE_CHAT = 1
-
 ICMP_START_SEQ = 0
 ICMP_END_SEQ = 65534
-
 
 class MessageBuffer:
     def __init__(self, message_id: int):
@@ -23,7 +21,6 @@ class MessageBuffer:
         self.chunks: Dict[int, int] = {}
         self.total_chunks = None
         self.created_at = time.time()
-
 
 def derive_key(password: str, local_ip: str, peer_ip: str) -> bytes:
     ip_pair = "|".join(sorted([local_ip, peer_ip]))
@@ -36,7 +33,6 @@ def derive_key(password: str, local_ip: str, peer_ip: str) -> bytes:
         200_000,
         dklen=32
     )
-
 
 def parse_plaintext(data: bytes) -> Dict:
     header_size = struct.calcsize("!2sBBIIH")
@@ -68,7 +64,6 @@ def parse_plaintext(data: bytes) -> Dict:
         "text": text_bytes.decode("utf-8")
     }
 
-
 def decrypt_message(key: bytes, encrypted_blob: bytes) -> Dict:
     if len(encrypted_blob) < 12 + 16:
         raise ValueError("Encrypted blob too short")
@@ -86,7 +81,6 @@ def decrypt_message(key: bytes, encrypted_blob: bytes) -> Dict:
 
     return parse_plaintext(plaintext)
 
-
 def reassemble_chunks(chunks: Dict[int, int], total_chunks: int) -> bytes:
     result = bytearray()
 
@@ -97,7 +91,6 @@ def reassemble_chunks(chunks: Dict[int, int], total_chunks: int) -> bytes:
         result.extend(chunks[chunk_number].to_bytes(2, "big"))
 
     return bytes(result)
-
 
 def main() -> None:
     print("=" * 60)
@@ -197,6 +190,9 @@ def main() -> None:
     except KeyboardInterrupt:
         print("\nReceiver stopped.")
 
+# Main ##############################################################################################
 
 if __name__ == "__main__":
     main()
+
+# End ###############################################################################################

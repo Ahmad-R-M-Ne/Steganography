@@ -1,24 +1,22 @@
-#!/usr/bin/env python3
-
+#####################################################################################################
+#                             Network Steganography Messenger                                       #
+#####################################################################################################
+ 
 import os
 import time
 import struct
 import hashlib
 from typing import Dict
-
 from scapy.all import IP, ICMP, Raw, send
 from cryptography.hazmat.primitives.ciphers.aead import ChaCha20Poly1305
-
 
 MAGIC = b"NS"
 VERSION = 1
 MSG_TYPE_CHAT = 1
 CHUNK_SIZE = 2
-
 ICMP_START_SEQ = 0
 ICMP_END_SEQ = 65534
 COVER_PAYLOAD = b"NETWORK-STEG-LAB"
-
 
 def derive_key(password: str, local_ip: str, peer_ip: str) -> bytes:
     ip_pair = "|".join(sorted([local_ip, peer_ip]))
@@ -31,7 +29,6 @@ def derive_key(password: str, local_ip: str, peer_ip: str) -> bytes:
         200_000,
         dklen=32
     )
-
 
 def build_plaintext(message_id: int, text: str) -> bytes:
     text_bytes = text.encode("utf-8")
@@ -49,7 +46,6 @@ def build_plaintext(message_id: int, text: str) -> bytes:
 
     return header + text_bytes
 
-
 def encrypt_message(key: bytes, message_id: int, text: str) -> bytes:
     plaintext = build_plaintext(message_id, text)
 
@@ -63,7 +59,6 @@ def encrypt_message(key: bytes, message_id: int, text: str) -> bytes:
     )
 
     return nonce + encrypted
-
 
 def split_into_chunks(data: bytes) -> Dict[int, int]:
     chunks = {}
@@ -79,7 +74,6 @@ def split_into_chunks(data: bytes) -> Dict[int, int]:
 
     return chunks
 
-
 def send_start_packet(dst_ip: str, session_id: int, message_id: int) -> None:
     pkt = (
         IP(dst=dst_ip, id=message_id & 0xFFFF)
@@ -88,7 +82,6 @@ def send_start_packet(dst_ip: str, session_id: int, message_id: int) -> None:
     )
 
     send(pkt, verbose=False)
-
 
 def send_data_packet(dst_ip: str, session_id: int, chunk_number: int, ip_id_value: int) -> None:
     pkt = (
@@ -99,7 +92,6 @@ def send_data_packet(dst_ip: str, session_id: int, chunk_number: int, ip_id_valu
 
     send(pkt, verbose=False)
 
-
 def send_end_packet(dst_ip: str, session_id: int, total_chunks: int) -> None:
     pkt = (
         IP(dst=dst_ip, id=total_chunks & 0xFFFF)
@@ -108,7 +100,6 @@ def send_end_packet(dst_ip: str, session_id: int, total_chunks: int) -> None:
     )
 
     send(pkt, verbose=False)
-
 
 def send_stego_message(
     dst_ip: str,
@@ -138,7 +129,6 @@ def send_stego_message(
     send_end_packet(dst_ip, session_id, len(chunks))
 
     print("[TX] Done\n")
-
 
 def main() -> None:
     print("=" * 60)
@@ -177,6 +167,9 @@ def main() -> None:
 
         message_id += 1
 
+# Main ##############################################################################################
 
 if __name__ == "__main__":
     main()
+
+# End ###############################################################################################

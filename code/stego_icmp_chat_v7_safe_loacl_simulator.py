@@ -1,6 +1,6 @@
-from pathlib import Path
-
-code = r'''#!/usr/bin/env python3
+#####################################################################################################
+#                             Network Steganography Messenger                                       #
+#####################################################################################################
 """
 Network Steganography Messenger v2 - Safe Local Simulator
 
@@ -36,11 +36,10 @@ import hashlib
 import queue
 import random
 import threading
+from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Dict, Optional, Set, List
-
 from cryptography.hazmat.primitives.ciphers.aead import ChaCha20Poly1305
-
 
 # ============================================================
 # Protocol constants
@@ -49,22 +48,17 @@ from cryptography.hazmat.primitives.ciphers.aead import ChaCha20Poly1305
 MAGIC = b"NS"
 VERSION = 1
 MSG_TYPE_CHAT = 1
-
 CHUNK_SIZE = 2
-
 PKT_START = "START"
 PKT_DATA = "DATA"
 PKT_END = "END"
 PKT_ACK = "ACK"
 PKT_NACK = "NACK"
 PKT_FULL_RETRY = "FULL_RETRY"
-
 ASSOCIATED_DATA = b"network-stego-v2-simulator"
-
 RX_BUFFER_TIMEOUT = 30
 ACK_TIMEOUT = 3
 MAX_FULL_RETRIES = 2
-
 
 # ============================================================
 # Data classes
@@ -92,7 +86,6 @@ class SimulatedPacket:
     total_chunks: Optional[int] = None
     missing_chunks: Optional[List[int]] = None
 
-
 @dataclass
 class MessageBuffer:
     message_id: int
@@ -100,7 +93,6 @@ class MessageBuffer:
     total_chunks: Optional[int] = None
     created_at: float = field(default_factory=time.time)
     full_retry_count: int = 0
-
 
 @dataclass
 class ChatSession:
@@ -131,7 +123,6 @@ class ChatSession:
     simulate_loss_percent: int = 0
     simulate_corrupt_percent: int = 0
 
-
 # ============================================================
 # Crypto and framing
 # ============================================================
@@ -152,7 +143,6 @@ def derive_key(password: str, local_name: str, peer_name: str) -> bytes:
         200_000,
         dklen=32,
     )
-
 
 def build_plaintext(message_id: int, text: str) -> bytes:
     """
@@ -181,7 +171,6 @@ def build_plaintext(message_id: int, text: str) -> bytes:
     )
 
     return header + text_bytes
-
 
 def parse_plaintext(data: bytes) -> Dict:
     header_size = struct.calcsize("!2sBBIIH")
@@ -213,7 +202,6 @@ def parse_plaintext(data: bytes) -> Dict:
         "text": text_bytes.decode("utf-8"),
     }
 
-
 def encrypt_message(key: bytes, message_id: int, text: str) -> bytes:
     plaintext = build_plaintext(message_id, text)
     nonce = os.urandom(12)
@@ -226,7 +214,6 @@ def encrypt_message(key: bytes, message_id: int, text: str) -> bytes:
     )
 
     return nonce + encrypted
-
 
 def decrypt_message(key: bytes, encrypted_blob: bytes) -> Dict:
     if len(encrypted_blob) < 12 + 16:
@@ -244,7 +231,6 @@ def decrypt_message(key: bytes, encrypted_blob: bytes) -> Dict:
     )
 
     return parse_plaintext(plaintext)
-
 
 # ============================================================
 # Chunking and reassembly
@@ -270,7 +256,6 @@ def split_into_chunks(data: bytes) -> Dict[int, int]:
 
     return chunks
 
-
 def reassemble_chunks(chunks: Dict[int, int], total_chunks: int) -> bytes:
     result = bytearray()
 
@@ -281,7 +266,6 @@ def reassemble_chunks(chunks: Dict[int, int], total_chunks: int) -> bytes:
         result.extend(chunks[chunk_number].to_bytes(2, "big"))
 
     return bytes(result)
-
 
 # ============================================================
 # Simulated transport
@@ -317,7 +301,6 @@ def maybe_drop_or_corrupt(session: ChatSession, pkt: SimulatedPacket) -> Optiona
 
     return pkt
 
-
 def send_packet(session: ChatSession, pkt: SimulatedPacket) -> None:
     """
     Send packet into the peer queue.
@@ -331,7 +314,6 @@ def send_packet(session: ChatSession, pkt: SimulatedPacket) -> None:
 
     session.tx_queue.put(pkt)
 
-
 def send_start(session: ChatSession, message_id: int) -> None:
     send_packet(
         session,
@@ -341,7 +323,6 @@ def send_start(session: ChatSession, message_id: int) -> None:
             message_id=message_id,
         ),
     )
-
 
 def send_data_chunk(session: ChatSession, message_id: int, chunk_number: int, chunk_value: int) -> None:
     send_packet(
@@ -355,7 +336,6 @@ def send_data_chunk(session: ChatSession, message_id: int, chunk_number: int, ch
         ),
     )
 
-
 def send_end(session: ChatSession, message_id: int, total_chunks: int) -> None:
     send_packet(
         session,
@@ -366,7 +346,6 @@ def send_end(session: ChatSession, message_id: int, total_chunks: int) -> None:
             total_chunks=total_chunks,
         ),
     )
-
 
 def send_ack(session: ChatSession, message_id: int) -> None:
     send_packet(
@@ -380,7 +359,6 @@ def send_ack(session: ChatSession, message_id: int) -> None:
 
     if session.debug:
         print(f"[TX] ACK sent for message_id={message_id}")
-
 
 def send_nack(session: ChatSession, message_id: int, missing_chunks: List[int]) -> None:
     send_packet(
@@ -396,7 +374,6 @@ def send_nack(session: ChatSession, message_id: int, missing_chunks: List[int]) 
     if session.debug:
         print(f"[TX] NACK sent for message_id={message_id}, missing_chunks={missing_chunks}")
 
-
 def send_full_retry_request(session: ChatSession, message_id: int) -> None:
     send_packet(
         session,
@@ -409,7 +386,6 @@ def send_full_retry_request(session: ChatSession, message_id: int) -> None:
 
     if session.debug:
         print(f"[TX] FULL_RETRY request sent for message_id={message_id}")
-
 
 # ============================================================
 # Message transmission logic
@@ -426,7 +402,6 @@ def prepare_message(session: ChatSession, message_id: int, text: str) -> Dict[in
         session.full_retry_count.setdefault(message_id, 0)
 
     return chunks
-
 
 def transmit_prepared_message(session: ChatSession, message_id: int, delay: float = 0.01) -> None:
     with session.lock:
@@ -451,7 +426,6 @@ def transmit_prepared_message(session: ChatSession, message_id: int, delay: floa
 
     send_end(session, message_id, total_chunks)
 
-
 def send_chat_message(session: ChatSession, text: str) -> None:
     with session.lock:
         message_id = session.next_message_id
@@ -472,7 +446,6 @@ def send_chat_message(session: ChatSession, text: str) -> None:
         time.sleep(0.1)
 
     print("[warning] No ACK received before timeout\n")
-
 
 def retransmit_missing_chunks(session: ChatSession, message_id: int, missing_chunks: List[int]) -> None:
     with session.lock:
@@ -505,7 +478,6 @@ def retransmit_missing_chunks(session: ChatSession, message_id: int, missing_chu
     if total_chunks is not None:
         send_end(session, message_id, total_chunks)
 
-
 def full_retransmit(session: ChatSession, message_id: int) -> None:
     with session.lock:
         if message_id not in session.sent_messages:
@@ -529,7 +501,6 @@ def full_retransmit(session: ChatSession, message_id: int) -> None:
     prepare_message(session, message_id, text)
     transmit_prepared_message(session, message_id)
 
-
 # ============================================================
 # Receive logic
 # ============================================================
@@ -550,7 +521,6 @@ def cleanup_old_buffers(session: ChatSession) -> None:
     for msg_id in expired:
         if session.debug:
             print(f"[RX] Expired receive buffer message_id={msg_id}")
-
 
 def process_packet(session: ChatSession, pkt: SimulatedPacket) -> None:
     if pkt.session_id != session.session_id:
@@ -673,7 +643,6 @@ def process_packet(session: ChatSession, pkt: SimulatedPacket) -> None:
 
         return
 
-
 def receiver_loop(session: ChatSession) -> None:
     while session.running:
         try:
@@ -682,7 +651,6 @@ def receiver_loop(session: ChatSession) -> None:
         except queue.Empty:
             cleanup_old_buffers(session)
             continue
-
 
 # ============================================================
 # CLI and commands
@@ -700,7 +668,6 @@ Commands:
 @loss N            Simulate packet loss percent, example: @loss 10
 @corrupt N         Simulate chunk corruption percent, example: @corrupt 5
 """)
-
 
 def show_status(session: ChatSession) -> None:
     with session.lock:
@@ -723,7 +690,6 @@ def show_status(session: ChatSession) -> None:
     print(f"Stored TX Msgs:         {sent}")
     print(f"Cached TX Chunks:       {cached_chunks}")
     print("-" * 50 + "\n")
-
 
 def handle_command(session: ChatSession, command: str) -> None:
     if command == "@help":
@@ -761,7 +727,6 @@ def handle_command(session: ChatSession, command: str) -> None:
 
     else:
         print("Unknown command. Type @help.")
-
 
 # ============================================================
 # Demo wiring: two simulated peers in one process
@@ -805,7 +770,6 @@ def create_simulated_peer_pair(password: str) -> tuple[ChatSession, ChatSession]
 
     return alice, bob
 
-
 def bob_auto_reply_loop(bob: ChatSession) -> None:
     """
     Bob receives messages normally through receiver_loop.
@@ -815,7 +779,6 @@ def bob_auto_reply_loop(bob: ChatSession) -> None:
     processes and connect queues via IPC.
     """
     receiver_loop(bob)
-
 
 def main() -> None:
     print("=" * 72)
@@ -871,12 +834,13 @@ def main() -> None:
     bob.running = False
     print("\nClosing simulator.")
 
+# Main ##############################################################################################
 
 if __name__ == "__main__":
     main()
-'''
-
-path = Path('/mnt/data/stego_chat_simulator.py')
-path.write_text(code, encoding='utf-8')
-print(f"Created: {path}")
-print(f"Size: {path.stat().st_size} bytes")
+    path = Path('/mnt/data/stego_chat_simulator.py')
+    path.write_text(code, encoding='utf-8')
+    print(f"Created: {path}")
+    print(f"Size: {path.stat().st_size} bytes")
+    
+# End ###############################################################################################

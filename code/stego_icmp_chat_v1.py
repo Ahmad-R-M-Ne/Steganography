@@ -1,4 +1,6 @@
-#!/usr/bin/env python3
+#####################################################################################################
+#                             Network Steganography Messenger                                       #
+#####################################################################################################
 
 import os
 import time
@@ -7,23 +9,17 @@ import hashlib
 import threading
 from dataclasses import dataclass, field
 from typing import Dict, Optional
-
 from scapy.all import IP, ICMP, Raw, send, sniff
 from cryptography.hazmat.primitives.ciphers.aead import ChaCha20Poly1305
-
 
 MAGIC = b"NS"
 VERSION = 1
 MSG_TYPE_CHAT = 1
-
 CHUNK_SIZE = 2
-
 ICMP_START_SEQ = 0
 ICMP_END_SEQ = 65534
-
 COVER_PAYLOAD = b"NETWORK-STEG-LAB"
 ASSOCIATED_DATA = b"network-stego-v2"
-
 
 @dataclass
 class MessageBuffer:
@@ -31,7 +27,6 @@ class MessageBuffer:
     chunks: Dict[int, int] = field(default_factory=dict)
     total_chunks: Optional[int] = None
     created_at: float = field(default_factory=time.time)
-
 
 @dataclass
 class ChatSession:
@@ -45,7 +40,6 @@ class ChatSession:
     next_message_id: int = 1
     received_buffers: Dict[int, MessageBuffer] = field(default_factory=dict)
 
-
 def derive_key(password: str, local_ip: str, peer_ip: str) -> bytes:
     ip_pair = "|".join(sorted([local_ip, peer_ip]))
     salt = hashlib.sha256(ip_pair.encode()).digest()
@@ -57,7 +51,6 @@ def derive_key(password: str, local_ip: str, peer_ip: str) -> bytes:
         200_000,
         dklen=32
     )
-
 
 def build_plaintext(message_id: int, text: str) -> bytes:
     text_bytes = text.encode("utf-8")
@@ -74,7 +67,6 @@ def build_plaintext(message_id: int, text: str) -> bytes:
     )
 
     return header + text_bytes
-
 
 def parse_plaintext(data: bytes) -> Dict:
     header_size = struct.calcsize("!2sBBIIH")
@@ -106,7 +98,6 @@ def parse_plaintext(data: bytes) -> Dict:
         "text": text_bytes.decode("utf-8")
     }
 
-
 def encrypt_message(key: bytes, message_id: int, text: str) -> bytes:
     plaintext = build_plaintext(message_id, text)
 
@@ -120,7 +111,6 @@ def encrypt_message(key: bytes, message_id: int, text: str) -> bytes:
     )
 
     return nonce + encrypted
-
 
 def decrypt_message(key: bytes, encrypted_blob: bytes) -> Dict:
     if len(encrypted_blob) < 12 + 16:
@@ -139,7 +129,6 @@ def decrypt_message(key: bytes, encrypted_blob: bytes) -> Dict:
 
     return parse_plaintext(plaintext)
 
-
 def split_into_chunks(data: bytes) -> Dict[int, int]:
     chunks = {}
 
@@ -154,7 +143,6 @@ def split_into_chunks(data: bytes) -> Dict[int, int]:
 
     return chunks
 
-
 def reassemble_chunks(chunks: Dict[int, int], total_chunks: int) -> bytes:
     result = bytearray()
 
@@ -166,7 +154,6 @@ def reassemble_chunks(chunks: Dict[int, int], total_chunks: int) -> bytes:
 
     return bytes(result)
 
-
 def send_icmp_packet(dst_ip: str, session_id: int, seq: int, ip_id: int) -> None:
     pkt = (
         IP(dst=dst_ip, id=ip_id & 0xFFFF)
@@ -175,7 +162,6 @@ def send_icmp_packet(dst_ip: str, session_id: int, seq: int, ip_id: int) -> None
     )
 
     send(pkt, verbose=False)
-
 
 def send_stego_message(session: ChatSession, text: str, delay: float = 0.03) -> None:
     message_id = session.next_message_id
@@ -221,7 +207,6 @@ def send_stego_message(session: ChatSession, text: str, delay: float = 0.03) -> 
     )
 
     print("[sent]\n")
-
 
 def process_received_packet(session: ChatSession, pkt) -> None:
     if IP not in pkt or ICMP not in pkt:
@@ -309,14 +294,12 @@ def process_received_packet(session: ChatSession, pkt) -> None:
 
         return
 
-
 def receiver_thread(session: ChatSession) -> None:
     sniff(
         filter="icmp",
         prn=lambda pkt: process_received_packet(session, pkt),
         store=False
     )
-
 
 def show_help() -> None:
     print("""
@@ -333,7 +316,6 @@ Current limitation:
 - ACK/NACK is not implemented yet.
 """)
 
-
 def show_status(session: ChatSession) -> None:
     print("\nSession status")
     print("-" * 40)
@@ -344,7 +326,6 @@ def show_status(session: ChatSession) -> None:
     print(f"Debug:          {session.debug}")
     print(f"Active RX Buffers: {len(session.received_buffers)}")
     print("-" * 40 + "\n")
-
 
 def handle_command(session: ChatSession, command: str) -> None:
     if command == "@help":
@@ -366,7 +347,6 @@ def handle_command(session: ChatSession, command: str) -> None:
 
     else:
         print("Unknown command. Type @help.")
-
 
 def main() -> None:
     print("=" * 66)
@@ -433,6 +413,9 @@ def main() -> None:
 
     print("\nClosing messenger.")
 
+# Main ##############################################################################################
 
 if __name__ == "__main__":
     main()
+
+# End ###############################################################################################
